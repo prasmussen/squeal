@@ -268,7 +268,7 @@ instance IndexedMonadTransPQ PQ where
   define (UnsafeDefinition q) = PQ $ \ (K conn) -> do
     resultMaybe <- liftBase $ LibPQ.exec conn q
     case resultMaybe of
-      Nothing -> error
+      Nothing -> fail
         "define: LibPQ.exec returned no results"
       Just result -> return $ K (K result)
 
@@ -396,7 +396,7 @@ instance (MonadBase IO io, schema0 ~ schema, schema1 ~ schema)
           params' = fmap (fmap toParam') (hcollapse (toParams @x @ps params))
         resultMaybe <- liftBase $ LibPQ.execParams conn q params' LibPQ.Binary
         case resultMaybe of
-          Nothing -> error
+          Nothing -> fail
             "manipulateParams: LibPQ.execParams returned no results"
           Just result -> return $ K (K result)
 
@@ -406,11 +406,11 @@ instance (MonadBase IO io, schema0 ~ schema, schema1 ~ schema)
         let temp = "temporary_statement"
         prepResultMaybe <- LibPQ.prepare conn temp q Nothing
         case prepResultMaybe of
-          Nothing -> error
+          Nothing -> fail
             "traversePrepared: LibPQ.prepare returned no results"
           Just prepResult -> do
             status <- LibPQ.resultStatus prepResult
-            unless (status == LibPQ.CommandOk) . error $
+            unless (status == LibPQ.CommandOk) . fail $
               "traversePrepared: LibPQ.prepare status " <> show status
         results <- for list $ \ params -> do
           let
@@ -418,16 +418,16 @@ instance (MonadBase IO io, schema0 ~ schema, schema1 ~ schema)
             params' = fmap (fmap toParam') (hcollapse (toParams @x @xs params))
           resultMaybe <- LibPQ.execPrepared conn temp params' LibPQ.Binary
           case resultMaybe of
-            Nothing -> error
+            Nothing -> fail
               "traversePrepared: LibPQ.execParams returned no results"
             Just result -> return $ K result
         deallocResultMaybe <- LibPQ.exec conn ("DEALLOCATE " <> temp <> ";")
         case deallocResultMaybe of
-          Nothing -> error
+          Nothing -> fail
             "traversePrepared: LibPQ.exec DEALLOCATE returned no results"
           Just deallocResult -> do
             status <- LibPQ.resultStatus deallocResult
-            unless (status == LibPQ.CommandOk) . error $
+            unless (status == LibPQ.CommandOk) . fail $
               "traversePrepared: DEALLOCATE status " <> show status
         return (K results)
 
@@ -437,11 +437,11 @@ instance (MonadBase IO io, schema0 ~ schema, schema1 ~ schema)
         let temp = "temporary_statement"
         prepResultMaybe <- LibPQ.prepare conn temp q Nothing
         case prepResultMaybe of
-          Nothing -> error
+          Nothing -> fail
             "traversePrepared_: LibPQ.prepare returned no results"
           Just prepResult -> do
             status <- LibPQ.resultStatus prepResult
-            unless (status == LibPQ.CommandOk) . error $
+            unless (status == LibPQ.CommandOk) . fail $
               "traversePrepared: LibPQ.prepare status " <> show status
         for_ list $ \ params -> do
           let
@@ -449,16 +449,16 @@ instance (MonadBase IO io, schema0 ~ schema, schema1 ~ schema)
             params' = fmap (fmap toParam') (hcollapse (toParams @x @xs params))
           resultMaybe <- LibPQ.execPrepared conn temp params' LibPQ.Binary
           case resultMaybe of
-            Nothing -> error
+            Nothing -> fail
               "traversePrepared_: LibPQ.execParams returned no results"
             Just _result -> return ()
         deallocResultMaybe <- LibPQ.exec conn ("DEALLOCATE " <> temp <> ";")
         case deallocResultMaybe of
-          Nothing -> error
+          Nothing -> fail
             "traversePrepared: LibPQ.exec DEALLOCATE returned no results"
           Just deallocResult -> do
             status <- LibPQ.resultStatus deallocResult
-            unless (status == LibPQ.CommandOk) . error $
+            unless (status == LibPQ.CommandOk) . fail $
               "traversePrepared: DEALLOCATE status " <> show status
         return (K ())
 
@@ -532,13 +532,13 @@ getRow
   -> io y
 getRow r (K result :: K LibPQ.Result columns) = liftBase $ do
   numRows <- LibPQ.ntuples result
-  when (numRows < r) $ error $
+  when (numRows < r) $ fail $
     "getRow: expected at least " <> show r <> "rows but only saw "
     <> show numRows
   let len = fromIntegral (lengthSList (Proxy @columns))
   row' <- traverse (LibPQ.getvalue result r) [0 .. len - 1]
   case fromList row' of
-    Nothing -> error "getRow: found unexpected length"
+    Nothing -> fail "getRow: found unexpected length"
     Just row -> return $ fromRow @columns row
 
 -- | Intended to be used for unfolding in streaming libraries, `nextRow`
@@ -556,7 +556,7 @@ nextRow total (K result :: K LibPQ.Result columns) r
     let len = fromIntegral (lengthSList (Proxy @columns))
     row' <- traverse (LibPQ.getvalue result r) [0 .. len - 1]
     case fromList row' of
-      Nothing -> error "nextRow: found unexpected length"
+      Nothing -> fail "nextRow: found unexpected length"
       Just row -> return $ Just (r+1, fromRow @columns row)
 
 -- | Get all rows from a `LibPQ.Result`.
@@ -570,7 +570,7 @@ getRows (K result :: K LibPQ.Result columns) = liftBase $ do
   for [0 .. numRows - 1] $ \ r -> do
     row' <- traverse (LibPQ.getvalue result r) [0 .. len - 1]
     case fromList row' of
-      Nothing -> error "getRows: found unexpected length"
+      Nothing -> fail "getRows: found unexpected length"
       Just row -> return $ fromRow @columns row
 
 -- | Get the first row if possible from a `LibPQ.Result`.
@@ -584,7 +584,7 @@ firstRow (K result :: K LibPQ.Result columns) = liftBase $ do
     let len = fromIntegral (lengthSList (Proxy @columns))
     row' <- traverse (LibPQ.getvalue result 0) [0 .. len - 1]
     case fromList row' of
-      Nothing -> error "firstRow: found unexpected length"
+      Nothing -> fail "firstRow: found unexpected length"
       Just row -> return . Just $ fromRow @columns row
 
 -- | Lifts actions on results from @LibPQ@.

@@ -271,8 +271,8 @@ okResult result = do
   when (not (status `elem` [CommandOk, TuplesOk])) $ do
     errorMessageMaybe <- resultErrorMessage result
     case errorMessageMaybe of
-      Nothing -> error "migrateDown: unknown error"
-      Just msg -> error ("migrationDown: " <> show msg)
+      Nothing -> fail "migrateDown: unknown error"
+      Just msg -> fail ("migrationDown: " <> show msg)
 
 -- | The `TableType` for a Squeal migration.
 type MigrationsTable =
