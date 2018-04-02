@@ -25,20 +25,20 @@ import qualified Generics.SOP as SOP
 import qualified GHC.Generics as GHC
 
 type Schema =
-  '[ "users" :::
+  '[ "users" ::: 'Table (
        '[ "pk_users" ::: 'PrimaryKey '["id"] ] :=>
-       '[ "id" ::: 'Def :=> 'NotNull 'PGint4
+       '[ "id"   ::: 'Def :=> 'NotNull 'PGint4
         , "name" ::: 'NoDef :=> 'NotNull 'PGtext
-        , "vec" ::: 'NoDef :=> 'NotNull ('PGvararray 'PGint2)
-        ]
-   , "emails" :::
+        , "vec"  ::: 'NoDef :=> 'NotNull ('PGvararray 'PGint2)
+        ] )
+   , "emails" ::: 'Table (
        '[  "pk_emails" ::: 'PrimaryKey '["id"]
         , "fk_user_id" ::: 'ForeignKey '["user_id"] "users" '["id"]
         ] :=>
-       '[ "id" ::: 'Def :=> 'NotNull 'PGint4
+       '[ "id"      ::: 'Def :=> 'NotNull 'PGint4
         , "user_id" ::: 'NoDef :=> 'NotNull 'PGint4
-        , "email" ::: 'NoDef :=> 'Null 'PGtext
-        ]
+        , "email"   ::: 'NoDef :=> 'Null 'PGtext
+        ] )
    ]
 
 setup :: Definition '[] Schema
@@ -60,20 +60,20 @@ setup =
 teardown :: Definition Schema '[]
 teardown = dropTable #emails >>> dropTable #users
 
-insertUser :: Manipulation Schema '[ 'NotNull 'PGtext, 'NotNull ('PGvararray 'PGint2)]
+insertUser :: Manipulation (TablesOf Schema) '[ 'NotNull 'PGtext, 'NotNull ('PGvararray 'PGint2)]
   '[ "fromOnly" ::: 'NotNull 'PGint4 ]
 insertUser = insertRows #users
   (Default `As` #id :* Set (param @1) `As` #name :* Set (param @2) `As` #vec :* Nil) []
   OnConflictDoNothing (Returning (#id `As` #fromOnly :* Nil))
 
-insertEmail :: Manipulation Schema '[ 'NotNull 'PGint4, 'Null 'PGtext] '[]
+insertEmail :: Manipulation (TablesOf Schema) '[ 'NotNull 'PGint4, 'Null 'PGtext] '[]
 insertEmail = insertRows #emails
   ( Default `As` #id :*
     Set (param @1) `As` #user_id :*
     Set (param @2) `As` #email :* Nil ) []
   OnConflictDoNothing (Returning Nil)
 
-getUsers :: Query Schema '[]
+getUsers :: Query (TablesOf Schema) '[]
   '[ "userName" ::: 'NotNull 'PGtext
    , "userEmail" ::: 'Null 'PGtext
    , "userVec" ::: 'NotNull ('PGvararray 'PGint2)]

@@ -162,8 +162,8 @@ migrateUp
   :: MonadBaseControl IO io
   => AlignedList (Migration io) schema0 schema1 -- ^ migrations to run
   -> PQ
-    ("schema_migrations" ::: MigrationsTable ': schema0)
-    ("schema_migrations" ::: MigrationsTable ': schema1)
+    ("schema_migrations" ::: 'Table MigrationsTable ': schema0)
+    ("schema_migrations" ::: 'Table MigrationsTable ': schema1)
     io ()
 migrateUp migration =
   define createMigrations
@@ -175,8 +175,8 @@ migrateUp migration =
       :: MonadBaseControl IO io
       => AlignedList (Migration io) schema0 schema1
       -> PQ
-        ("schema_migrations" ::: MigrationsTable ': schema0)
-        ("schema_migrations" ::: MigrationsTable ': schema1)
+        ("schema_migrations" ::: 'Table MigrationsTable ': schema0)
+        ("schema_migrations" ::: 'Table MigrationsTable ': schema1)
         io ()
     upMigrations = \case
       Done -> return ()
@@ -185,8 +185,8 @@ migrateUp migration =
     upMigration
       :: MonadBase IO io
       => Migration io schema0 schema1 -> PQ
-        ("schema_migrations" ::: MigrationsTable ': schema0)
-        ("schema_migrations" ::: MigrationsTable ': schema1)
+        ("schema_migrations" ::: 'Table MigrationsTable ': schema0)
+        ("schema_migrations" ::: 'Table MigrationsTable ': schema1)
         io ()
     upMigration step =
       queryExecuted step
@@ -202,8 +202,8 @@ migrateUp migration =
     queryExecuted
       :: MonadBase IO io
       => Migration io schema0 schema1 -> PQ
-        ("schema_migrations" ::: MigrationsTable ': schema0)
-        ("schema_migrations" ::: MigrationsTable ': schema0)
+        ("schema_migrations" ::: 'Table MigrationsTable ': schema0)
+        ("schema_migrations" ::: 'Table MigrationsTable ': schema0)
         io Row
     queryExecuted step = do
       result <- runQueryParams selectMigration (Only (name step))
@@ -218,8 +218,8 @@ migrateDown
   :: MonadBaseControl IO io
   => AlignedList (Migration io) schema0 schema1 -- ^ migrations to rewind
   -> PQ
-    ("schema_migrations" ::: MigrationsTable ': schema1)
-    ("schema_migrations" ::: MigrationsTable ': schema0)
+    ("schema_migrations" ::: 'Table MigrationsTable ': schema1)
+    ("schema_migrations" ::: 'Table MigrationsTable ': schema0)
     io ()
 migrateDown migrations =
   define createMigrations
@@ -230,8 +230,8 @@ migrateDown migrations =
     downMigrations
       :: MonadBaseControl IO io
       => AlignedList (Migration io) schema0 schema1 -> PQ
-        ("schema_migrations" ::: MigrationsTable ': schema1)
-        ("schema_migrations" ::: MigrationsTable ': schema0)
+        ("schema_migrations" ::: 'Table MigrationsTable ': schema1)
+        ("schema_migrations" ::: 'Table MigrationsTable ': schema0)
         io ()
     downMigrations = \case
       Done -> return ()
@@ -240,8 +240,8 @@ migrateDown migrations =
     downMigration
       :: MonadBase IO io
       => Migration io schema0 schema1 -> PQ
-        ("schema_migrations" ::: MigrationsTable ': schema1)
-        ("schema_migrations" ::: MigrationsTable ': schema0)
+        ("schema_migrations" ::: 'Table MigrationsTable ': schema1)
+        ("schema_migrations" ::: 'Table MigrationsTable ': schema0)
         io ()
     downMigration step =
       queryExecuted step
@@ -257,8 +257,8 @@ migrateDown migrations =
     queryExecuted
       :: MonadBase IO io
       => Migration io schema0 schema1 -> PQ
-        ("schema_migrations" ::: MigrationsTable ': schema1)
-        ("schema_migrations" ::: MigrationsTable ': schema1)
+        ("schema_migrations" ::: 'Table MigrationsTable ': schema1)
+        ("schema_migrations" ::: 'Table MigrationsTable ': schema1)
         io Row
     queryExecuted step = do
       result <- runQueryParams selectMigration (Only (name step))
@@ -283,7 +283,7 @@ type MigrationsTable =
 
 -- | Creates a `MigrationsTable` if it does not already exist.
 createMigrations
-  :: Has "schema_migrations" schema MigrationsTable
+  :: Has "schema_migrations" (TablesOf schema) MigrationsTable
   => Definition schema schema
 createMigrations =
   createTableIfNotExists #schema_migrations

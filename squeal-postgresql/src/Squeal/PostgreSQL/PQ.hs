@@ -160,8 +160,8 @@ lowerConnection (K conn) = K conn
 -- | We keep track of the schema via an Atkey indexed state monad transformer,
 -- `PQ`.
 newtype PQ
-  (schema0 :: TablesType)
-  (schema1 :: TablesType)
+  (schema0 :: SchemaType)
+  (schema1 :: SchemaType)
   (m :: Type -> Type)
   (x :: Type) =
     PQ { unPQ :: K LibPQ.Connection schema0 -> m (K x schema1) }
@@ -309,63 +309,63 @@ a default instance.
 class Monad pq => MonadPQ schema pq | pq -> schema where
   manipulateParams
     :: ToParams x params
-    => Manipulation schema params ys
+    => Manipulation (TablesOf schema) params ys
     -- ^ `insertRows`, `update` or `deleteFrom`
     -> x -> pq (K LibPQ.Result ys)
   default manipulateParams
     :: (MonadTrans t, MonadPQ schema pq1, pq ~ t pq1)
     => ToParams x params
-    => Manipulation schema params ys
+    => Manipulation (TablesOf schema) params ys
     -- ^ `insertRows`, `update` or `deleteFrom`
     -> x -> pq (K LibPQ.Result ys)
   manipulateParams manipulation params = lift $
     manipulateParams manipulation params
 
-  manipulate :: Manipulation schema '[] ys -> pq (K LibPQ.Result ys)
+  manipulate :: Manipulation (TablesOf schema) '[] ys -> pq (K LibPQ.Result ys)
   manipulate statement = manipulateParams statement ()
 
   runQueryParams
     :: ToParams x params
-    => Query schema params ys
+    => Query (TablesOf schema) params ys
     -- ^ `select` and friends
     -> x -> pq (K LibPQ.Result ys)
   runQueryParams = manipulateParams . queryStatement
 
   runQuery
-    :: Query schema '[] ys
+    :: Query (TablesOf schema) '[] ys
     -- ^ `select` and friends
     -> pq (K LibPQ.Result ys)
   runQuery q = runQueryParams q ()
 
   traversePrepared
     :: (ToParams x params, Traversable list)
-    => Manipulation schema params ys
+    => Manipulation (TablesOf schema) params ys
     -- ^ `insertRows`, `update`, or `deleteFrom`, and friends
     -> list x -> pq (list (K LibPQ.Result ys))
   default traversePrepared
     :: (MonadTrans t, MonadPQ schema pq1, pq ~ t pq1)
     => (ToParams x params, Traversable list)
-    => Manipulation schema params ys -> list x -> pq (list (K LibPQ.Result ys))
+    => Manipulation (TablesOf schema) params ys -> list x -> pq (list (K LibPQ.Result ys))
   traversePrepared manipulation params = lift $
     traversePrepared manipulation params
 
   forPrepared
     :: (ToParams x params, Traversable list)
     => list x
-    -> Manipulation schema params ys
+    -> Manipulation (TablesOf schema) params ys
     -- ^ `insertRows`, `update` or `deleteFrom`
     -> pq (list (K LibPQ.Result ys))
   forPrepared = flip traversePrepared
 
   traversePrepared_
     :: (ToParams x params, Foldable list)
-    => Manipulation schema params '[]
+    => Manipulation (TablesOf schema) params '[]
     -- ^ `insertRows`, `update` or `deleteFrom`
     -> list x -> pq ()
   default traversePrepared_
     :: (MonadTrans t, MonadPQ schema pq1, pq ~ t pq1)
     => (ToParams x params, Foldable list)
-    => Manipulation schema params '[]
+    => Manipulation (TablesOf schema) params '[]
     -- ^ `insertRows`, `update` or `deleteFrom`
     -> list x -> pq ()
   traversePrepared_ manipulation params = lift $
@@ -374,7 +374,7 @@ class Monad pq => MonadPQ schema pq | pq -> schema where
   forPrepared_
     :: (ToParams x params, Foldable list)
     => list x
-    -> Manipulation schema params '[]
+    -> Manipulation (TablesOf schema) params '[]
     -- ^ `insertRows`, `update` or `deleteFrom`
     -> pq ()
   forPrepared_ = flip traversePrepared_
@@ -389,7 +389,7 @@ instance (MonadBase IO io, schema0 ~ schema, schema1 ~ schema)
   => MonadPQ schema (PQ schema0 schema1 io) where
 
   manipulateParams
-    (UnsafeManipulation q :: Manipulation schema ps ys) (params :: x) =
+    (UnsafeManipulation q :: Manipulation (TablesOf schema) ps ys) (params :: x) =
       PQ $ \ (K conn) -> do
         let
           toParam' bytes = (LibPQ.invalidOid,bytes,LibPQ.Binary)
@@ -401,7 +401,7 @@ instance (MonadBase IO io, schema0 ~ schema, schema1 ~ schema)
           Just result -> return $ K (K result)
 
   traversePrepared
-    (UnsafeManipulation q :: Manipulation schema xs ys) (list :: list x) =
+    (UnsafeManipulation q :: Manipulation (TablesOf schema) xs ys) (list :: list x) =
       PQ $ \ (K conn) -> liftBase $ do
         let temp = "temporary_statement"
         prepResultMaybe <- LibPQ.prepare conn temp q Nothing
@@ -432,7 +432,7 @@ instance (MonadBase IO io, schema0 ~ schema, schema1 ~ schema)
         return (K results)
 
   traversePrepared_
-    (UnsafeManipulation q :: Manipulation schema xs '[]) (list :: list x) =
+    (UnsafeManipulation q :: Manipulation (TablesOf schema) xs '[]) (list :: list x) =
       PQ $ \ (K conn) -> liftBase $ do
         let temp = "temporary_statement"
         prepResultMaybe <- LibPQ.prepare conn temp q Nothing

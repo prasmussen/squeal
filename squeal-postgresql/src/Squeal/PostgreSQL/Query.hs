@@ -601,10 +601,16 @@ newtype FromClause schema params relations
   deriving (GHC.Generic,Show,Eq,Ord,NFData)
 
 -- | A real `table` is a table from the schema.
+-- table
+--   :: Aliased (Table schema) table
+--   -> FromClause schema params '[table]
+-- table = UnsafeFromClause . renderAliasedAs renderTable
+
 table
-  :: Aliased (Table schema) table
-  -> FromClause schema params '[table]
-table = UnsafeFromClause . renderAliasedAs renderTable
+  :: Has tab schema table
+  => Aliased Alias (as ::: tab)
+  -> FromClause schema params '[as ::: ColumnsToRelation (TableToColumns table)]
+table = undefined
 
 -- | `subquery` derives a table from a `Query`.
 subquery

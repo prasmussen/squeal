@@ -587,6 +587,26 @@ type family TablesOf schema where
   TablesOf (alias ::: 'Table table ': schema) =
     alias ::: table ': TablesOf schema
   TablesOf (_ ': schema) = TablesOf schema
+
+type family ViewsOf schema where
+  ViewsOf '[] = '[]
+  ViewsOf (alias ::: 'View view ': schema) =
+    alias ::: view ': ViewsOf schema
+  ViewsOf (_ ': schema) = ViewsOf schema
+
+type family EnumsOf schema where
+  EnumsOf '[] = '[]
+  EnumsOf (alias ::: 'Enum fields ': schema) =
+    alias ::: fields ': EnumsOf schema
+  EnumsOf (_ ': schema) = EnumsOf schema
+
+type family CompositesOf schema where
+  CompositesOf '[] = '[]
+  CompositesOf (alias ::: 'Composite fields ': schema) =
+    alias ::: fields ': CompositesOf schema
+  CompositesOf (alias ::: 'Table (constraints :=> fields) ': schema) =
+    alias ::: fields ': CompositesOf schema
+  CompositesOf (_ ': schema) = CompositesOf schema
      
 -- table
 -- :: Has table (TablesOf schema) tablety
