@@ -94,6 +94,10 @@ module Squeal.PostgreSQL.Schema
     -- * Generics
   , SameField
   , SameFields
+    -- * Schemas
+  , ObjectType (..)
+  , SchemaType
+  , TablesOf
   ) where
 
 import Control.DeepSeq
@@ -139,6 +143,8 @@ data PGType
   | PGjsonb -- ^ binary JSON data, decomposed
   | PGvararray PGType -- ^ variable length array
   | PGfixarray Nat PGType -- ^ fixed length array
+  | PGenum Symbol [Symbol]
+  | PGcomposite Symbol [(Symbol, ColumnType)]
   | UnsafePGType Symbol -- ^ an escape hatch for unsupported PostgreSQL types
 
 -- | The object identifier of a `PGType`.
@@ -567,3 +573,34 @@ type family DropIfConstraintsInvolve column constraints where
     = If (ConstraintInvolves column constraint)
         (DropIfConstraintsInvolve column constraints)
         (alias ::: constraint ': DropIfConstraintsInvolve column constraints)
+
+data ObjectType
+  = Table TableType
+  | View RelationType
+  | Enum [Symbol]
+  | Composite [(Symbol, ColumnType)]
+
+type SchemaType = [(Symbol, ObjectType)]
+
+type family TablesOf schema where
+  TablesOf '[] = '[]
+  TablesOf (alias ::: 'Table table ': schema) =
+    alias ::: table ': TablesOf schema
+  TablesOf (_ ': schema) = TablesOf schema
+     
+-- table
+-- :: Has table (TablesOf schema) tablety
+-- => Aliased Alias (as ::: table)
+-- -> FromClause schema params '[as ::: TableToRelation tablety]--       
+-- view
+-- :: Has view (ViewsOf schema) relation
+-- => Aliased Alias (as ::: view)
+-- -> FromClause schema params '[as ::: relation]--       
+-- composite
+-- :: Has ty (CompositesOf schema) fields
+-- => Alias ty
+-- -> TypeExpression schema (PGcomposite ty fields)--       
+-- enum
+-- :: Has ty (EnumsOf schema) labels
+-- => Alias ty
+-- -> TypeExpression schema (PGenum ty labels)

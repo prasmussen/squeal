@@ -65,6 +65,11 @@ module Squeal.PostgreSQL.Definition
   , setNotNull
   , dropNotNull
   , alterType
+    -- Type Definitions
+  , createTypeEnum
+  , createTypeComposite
+    -- View Definitions
+  , createView
   ) where
 
 import Control.Category
@@ -78,6 +83,7 @@ import qualified Generics.SOP as SOP
 import qualified GHC.Generics as GHC
 
 import Squeal.PostgreSQL.Expression
+import Squeal.PostgreSQL.Query
 import Squeal.PostgreSQL.Render
 import Squeal.PostgreSQL.Schema
 
@@ -89,8 +95,8 @@ statements
 -- database, like a `createTable`, `dropTable`, or `alterTable` command.
 -- `Definition`s may be composed using the `>>>` operator.
 newtype Definition
-  (schema0 :: TablesType)
-  (schema1 :: TablesType)
+  (schema0 :: SchemaType)
+  (schema1 :: SchemaType)
   = UnsafeDefinition { renderDefinition :: ByteString }
   deriving (GHC.Generic,Show,Eq,Ord,NFData)
 
@@ -119,11 +125,11 @@ createTable
   => Alias table -- ^ the name of the table to add
   -> NP (Aliased TypeExpression) columns
     -- ^ the names and datatype of each column
-  -> NP (Aliased (TableConstraintExpression schema columns)) constraints
+  -> NP (Aliased (TableConstraintExpression (TablesOf schema) columns)) constraints
     -- ^ constraints that must hold for the table
-  -> Definition schema (Create table (constraints :=> columns) schema)
-createTable table columns constraints = UnsafeDefinition $
-  "CREATE TABLE" <+> renderCreation table columns constraints
+  -> Definition schema (Create table ('Table (constraints :=> columns)) schema)
+createTable tab columns constraints = UnsafeDefinition $
+  "CREATE TABLE" <+> renderCreation tab columns constraints
 
 -- | `createTableIfNotExists` creates a table if it doesn't exist, but does not add it to the schema.
 -- Instead, the schema already has the table so if the table did not yet exist, the schema was wrong.
@@ -138,18 +144,18 @@ createTable table columns constraints = UnsafeDefinition $
 -- :}
 -- "CREATE TABLE IF NOT EXISTS tab (a int, b real);"
 createTableIfNotExists
-  :: ( Has table schema (constraints :=> columns)
+  :: ( Has table (TablesOf schema) (constraints :=> columns)
      , SOP.SListI columns
      , SOP.SListI constraints )
   => Alias table -- ^ the name of the table to add
   -> NP (Aliased TypeExpression) columns
     -- ^ the names and datatype of each column
-  -> NP (Aliased (TableConstraintExpression schema columns)) constraints
+  -> NP (Aliased (TableConstraintExpression (TablesOf schema) columns)) constraints
     -- ^ constraints that must hold for the table
   -> Definition schema schema
-createTableIfNotExists table columns constraints = UnsafeDefinition $
+createTableIfNotExists tab columns constraints = UnsafeDefinition $
   "CREATE TABLE IF NOT EXISTS"
-  <+> renderCreation table columns constraints
+  <+> renderCreation tab columns constraints
 
 -- helper function for `createTable` and `createTableIfNotExists`
 renderCreation
@@ -162,7 +168,7 @@ renderCreation
   -> NP (Aliased (TableConstraintExpression schema columns)) constraints
     -- ^ constraints that must hold for the table
   -> ByteString
-renderCreation table columns constraints = renderAlias table
+renderCreation tab columns constraints = renderAlias tab
   <+> parenthesized
     ( renderCommaSeparated renderColumnDef columns
       <> ( case constraints of
@@ -395,7 +401,7 @@ dropTable
   :: KnownSymbol table
   => Alias table -- ^ table to remove
   -> Definition schema (Drop table schema)
-dropTable table = UnsafeDefinition $ "DROP TABLE" <+> renderAlias table <> ";"
+dropTable tab = UnsafeDefinition $ "DROP TABLE" <+> renderAlias tab <> ";"
 
 {-----------------------------------------
 ALTER statements
@@ -403,13 +409,13 @@ ALTER statements
 
 -- | `alterTable` changes the definition of a table from the schema.
 alterTable
-  :: Has tab schema table0
+  :: Has tab (TablesOf schema) table0
   => Alias tab -- ^ table to alter
-  -> AlterTable schema table0 table1 -- ^ alteration to perform
-  -> Definition schema (Alter tab schema table1)
-alterTable table alteration = UnsafeDefinition $
+  -> AlterTable (TablesOf schema) table0 table1 -- ^ alteration to perform
+  -> Definition schema (Alter tab schema ('Table table1))
+alterTable tab alteration = UnsafeDefinition $
   "ALTER TABLE"
-  <+> renderAlias table
+  <+> renderAlias tab
   <+> renderAlterTable alteration
   <> ";"
 
@@ -658,3 +664,19 @@ dropNotNull = UnsafeAlterColumn $ "DROP NOT NULL"
 -- "ALTER TABLE tab ALTER COLUMN col TYPE numeric NOT NULL;"
 alterType :: TypeExpression ty -> AlterColumn ty0 ty
 alterType ty = UnsafeAlterColumn $ "TYPE" <+> renderTypeExpression ty
+
+createTypeEnum
+  :: Aliased (NP Alias) (ty ::: labels)
+  -> Definition schema (Create ty ('Enum labels) schema)
+createTypeEnum = undefined
+
+createTypeComposite
+  :: Aliased (NP (Aliased TypeExpression)) (ty ::: fields)
+  -> Definition schema (Create ty ('Composite fields) schema)
+createTypeComposite = undefined
+
+createView
+  :: Aliased (Query (TablesOf schema) params) (view ::: relation)
+  -> Definition schema (Create view ('View relation) schema)
+createView
+  = undefined
