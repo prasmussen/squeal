@@ -294,7 +294,7 @@ createMigrations =
 
 -- | Inserts a `Migration` into the `MigrationsTable`
 insertMigration
-  :: Has "schema_migrations" schema MigrationsTable
+  :: Has "schema_migrations" (TablesOf schema) MigrationsTable
   => Manipulation schema '[ 'NotNull 'PGtext] '[]
 insertMigration = insertRow_ #schema_migrations
   ( Set (param @1) `As` #name :*
@@ -302,14 +302,14 @@ insertMigration = insertRow_ #schema_migrations
 
 -- | Deletes a `Migration` from the `MigrationsTable`
 deleteMigration
-  :: Has "schema_migrations" schema MigrationsTable
+  :: Has "schema_migrations" (TablesOf schema) MigrationsTable
   => Manipulation schema '[ 'NotNull 'PGtext ] '[]
 deleteMigration = deleteFrom_ #schema_migrations (#name .== param @1)
 
 -- | Selects a `Migration` from the `MigrationsTable`, returning
 -- the time at which it was executed.
 selectMigration
-  :: Has "schema_migrations" schema MigrationsTable
+  :: Has "schema_migrations" (TablesOf schema) MigrationsTable
   => Query schema '[ 'NotNull 'PGtext ]
     '[ "executed_at" ::: 'NotNull 'PGtimestamptz ]
 selectMigration = select

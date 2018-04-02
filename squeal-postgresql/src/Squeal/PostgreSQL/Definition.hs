@@ -676,7 +676,7 @@ createTypeComposite
 createTypeComposite = undefined
 
 createView
-  :: Aliased (Query (TablesOf schema) params) (view ::: relation)
+  :: Aliased (Query schema params) (view ::: relation)
   -> Definition schema (Create view ('View relation) schema)
 createView
   = undefined

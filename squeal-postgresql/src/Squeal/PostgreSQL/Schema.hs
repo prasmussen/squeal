@@ -98,6 +98,7 @@ module Squeal.PostgreSQL.Schema
   , ObjectType (..)
   , SchemaType
   , TablesOf
+  , TablesToSchema
   ) where
 
 import Control.DeepSeq
@@ -607,6 +608,11 @@ type family CompositesOf schema where
   CompositesOf (alias ::: 'Table (constraints :=> fields) ': schema) =
     alias ::: fields ': CompositesOf schema
   CompositesOf (_ ': schema) = CompositesOf schema
+
+type family TablesToSchema tables where
+  TablesToSchema '[] = '[]
+  TablesToSchema (as ::: tab ': tabs) =
+    as ::: 'Table tab ': TablesToSchema tabs
      
 -- table
 -- :: Has table (TablesOf schema) tablety
