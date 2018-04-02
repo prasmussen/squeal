@@ -605,12 +605,15 @@ newtype FromClause schema params relations
 --   :: Aliased (Table schema) table
 --   -> FromClause schema params '[table]
 -- table = UnsafeFromClause . renderAliasedAs renderTable
-
 table
-  :: Has tab (TablesOf schema) table
-  => Aliased Alias (as ::: tab)
-  -> FromClause schema params '[as ::: ColumnsToRelation (TableToColumns table)]
-table = undefined
+  :: Aliased (Table schema) (as ::: rel)
+  -> FromClause schema params '[as ::: rel]
+table = UnsafeFromClause . renderAliasedAs renderTable
+
+view
+  :: Aliased (View schema) (as ::: rel)
+  -> FromClause schema params '[as ::: rel]
+view = UnsafeFromClause . renderAliasedAs renderView
 
 -- | `subquery` derives a table from a `Query`.
 subquery

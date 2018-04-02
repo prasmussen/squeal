@@ -98,6 +98,7 @@ module Squeal.PostgreSQL.Schema
   , ObjectType (..)
   , SchemaType
   , TablesOf
+  , ViewsOf
   , TablesToSchema
   ) where
 

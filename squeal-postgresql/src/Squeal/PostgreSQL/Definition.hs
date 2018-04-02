@@ -123,7 +123,7 @@ createTable
      , SOP.SListI columns
      , SOP.SListI constraints )
   => Alias table -- ^ the name of the table to add
-  -> NP (Aliased TypeExpression) columns
+  -> NP (Aliased (TypeExpression schema)) columns
     -- ^ the names and datatype of each column
   -> NP (Aliased (TableConstraintExpression (TablesOf schema) columns)) constraints
     -- ^ constraints that must hold for the table
@@ -148,7 +148,7 @@ createTableIfNotExists
      , SOP.SListI columns
      , SOP.SListI constraints )
   => Alias table -- ^ the name of the table to add
-  -> NP (Aliased TypeExpression) columns
+  -> NP (Aliased (TypeExpression schema)) columns
     -- ^ the names and datatype of each column
   -> NP (Aliased (TableConstraintExpression (TablesOf schema) columns)) constraints
     -- ^ constraints that must hold for the table
@@ -163,9 +163,9 @@ renderCreation
      , SOP.SListI columns
      , SOP.SListI constraints )
   => Alias table -- ^ the name of the table to add
-  -> NP (Aliased TypeExpression) columns
+  -> NP (Aliased (TypeExpression schema)) columns
     -- ^ the names and datatype of each column
-  -> NP (Aliased (TableConstraintExpression schema columns)) constraints
+  -> NP (Aliased (TableConstraintExpression (TablesOf schema) columns)) constraints
     -- ^ constraints that must hold for the table
   -> ByteString
 renderCreation tab columns constraints = renderAlias tab
@@ -177,7 +177,7 @@ renderCreation tab columns constraints = renderAlias tab
                renderCommaSeparated renderConstraint constraints ) )
   <> ";"
   where
-    renderColumnDef :: Aliased TypeExpression x -> ByteString
+    renderColumnDef :: Aliased (TypeExpression schema) x -> ByteString
     renderColumnDef (ty `As` column) =
       renderAlias column <+> renderTypeExpression ty
     renderConstraint
@@ -515,8 +515,8 @@ class AddColumn ty where
   addColumn
     :: KnownSymbol column
     => Alias column -- ^ column to add
-    -> TypeExpression ty -- ^ type of the new column
-    -> AlterTable schema (constraints :=> columns)
+    -> TypeExpression schema ty -- ^ type of the new column
+    -> AlterTable (TablesOf schema) (constraints :=> columns)
         (constraints :=> Create column ty columns)
   addColumn column ty = UnsafeAlterTable $
     "ADD COLUMN" <+> renderAlias column <+> renderTypeExpression ty
@@ -572,14 +572,15 @@ renameColumn column0 column1 = UnsafeAlterTable $
 alterColumn
   :: (KnownSymbol column, Has column columns ty0)
   => Alias column -- ^ column to alter
-  -> AlterColumn ty0 ty1 -- ^ alteration to perform
-  -> AlterTable schema (constraints :=> columns)
+  -> AlterColumn schema ty0 ty1 -- ^ alteration to perform
+  -> AlterTable (TablesOf schema) (constraints :=> columns)
       (constraints :=> Alter column columns ty1)
 alterColumn column alteration = UnsafeAlterTable $
   "ALTER COLUMN" <+> renderAlias column <+> renderAlterColumn alteration
 
 -- | An `AlterColumn` describes the alteration to perform on a single column.
-newtype AlterColumn (ty0 :: ColumnType) (ty1 :: ColumnType) =
+newtype AlterColumn
+  (schema :: SchemaType) (ty0 :: ColumnType) (ty1 :: ColumnType) =
   UnsafeAlterColumn {renderAlterColumn :: ByteString}
   deriving (GHC.Generic,Show,Eq,Ord,NFData)
 
@@ -598,7 +599,7 @@ newtype AlterColumn (ty0 :: ColumnType) (ty1 :: ColumnType) =
 -- "ALTER TABLE tab ALTER COLUMN col SET DEFAULT 5;"
 setDefault
   :: Expression '[] 'Ungrouped '[] ty -- ^ default value to set
-  -> AlterColumn (constraint :=> ty) ('Def :=> ty)
+  -> AlterColumn schema (constraint :=> ty) ('Def :=> ty)
 setDefault expression = UnsafeAlterColumn $
   "SET DEFAULT" <+> renderExpression expression
 
@@ -613,7 +614,7 @@ setDefault expression = UnsafeAlterColumn $
 -- in renderDefinition definition
 -- :}
 -- "ALTER TABLE tab ALTER COLUMN col DROP DEFAULT;"
-dropDefault :: AlterColumn ('Def :=> ty) ('NoDef :=> ty)
+dropDefault :: AlterColumn schema ('Def :=> ty) ('NoDef :=> ty)
 dropDefault = UnsafeAlterColumn $ "DROP DEFAULT"
 
 -- | A `setNotNull` adds a @NOT NULL@ constraint to a column.
@@ -630,7 +631,7 @@ dropDefault = UnsafeAlterColumn $ "DROP DEFAULT"
 -- :}
 -- "ALTER TABLE tab ALTER COLUMN col SET NOT NULL;"
 setNotNull
-  :: AlterColumn (constraint :=> 'Null ty) (constraint :=> 'NotNull ty)
+  :: AlterColumn schema (constraint :=> 'Null ty) (constraint :=> 'NotNull ty)
 setNotNull = UnsafeAlterColumn $ "SET NOT NULL"
 
 -- | A `dropNotNull` drops a @NOT NULL@ constraint from a column.
@@ -645,7 +646,7 @@ setNotNull = UnsafeAlterColumn $ "SET NOT NULL"
 -- :}
 -- "ALTER TABLE tab ALTER COLUMN col DROP NOT NULL;"
 dropNotNull
-  :: AlterColumn (constraint :=> 'NotNull ty) (constraint :=> 'Null ty)
+  :: AlterColumn schema (constraint :=> 'NotNull ty) (constraint :=> 'Null ty)
 dropNotNull = UnsafeAlterColumn $ "DROP NOT NULL"
 
 -- | An `alterType` converts a column to a different data type.
@@ -662,7 +663,7 @@ dropNotNull = UnsafeAlterColumn $ "DROP NOT NULL"
 -- in renderDefinition definition
 -- :}
 -- "ALTER TABLE tab ALTER COLUMN col TYPE numeric NOT NULL;"
-alterType :: TypeExpression ty -> AlterColumn ty0 ty
+alterType :: TypeExpression schema ty -> AlterColumn schema ty0 ty
 alterType ty = UnsafeAlterColumn $ "TYPE" <+> renderTypeExpression ty
 
 createTypeEnum
@@ -671,7 +672,7 @@ createTypeEnum
 createTypeEnum = undefined
 
 createTypeComposite
-  :: Aliased (NP (Aliased TypeExpression)) (ty ::: fields)
+  :: Aliased (NP (Aliased (TypeExpression schema))) (ty ::: fields)
   -> Definition schema (Create ty ('Composite fields) schema)
 createTypeComposite = undefined
 
