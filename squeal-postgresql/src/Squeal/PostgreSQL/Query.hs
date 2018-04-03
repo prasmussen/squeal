@@ -57,6 +57,7 @@ module Squeal.PostgreSQL.Query
     -- * From
   , FromClause (..)
   , table
+  , view
   , subquery
   , crossJoin
   , innerJoin

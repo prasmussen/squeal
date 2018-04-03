@@ -9,7 +9,8 @@ Rendering helper functions.
 -}
 
 {-# LANGUAGE
-    MagicHash
+    ConstraintKinds
+  , MagicHash
   , OverloadedStrings
   , PolyKinds
   , RankNTypes

@@ -100,6 +100,8 @@ module Squeal.PostgreSQL.Expression
     -- * Tables
   , Table (UnsafeTable, renderTable)
   , View (..)
+  , EnumDef (..)
+  , Composite (..)
     -- * Types
   , TypeExpression (UnsafeTypeExpression, renderTypeExpression)
   , PGTyped (pgtype)
@@ -1036,8 +1038,6 @@ instance
   ) => IsLabel alias (Table schema relation) where
     fromLabel = UnsafeTable $ renderAlias (Alias @alias)
 
--- | A `Table` from a table expression is a way
--- to call a table reference by its alias.
 newtype View
   (schema :: SchemaType)
   (columns :: RelationType)
@@ -1049,6 +1049,27 @@ instance
   ) => IsLabel alias (View schema relation) where
     fromLabel = UnsafeView $ renderAlias (Alias @alias)
 
+newtype EnumDef
+  (schema :: SchemaType)
+  (labels :: [Symbol])
+  = UnsafeEnumDef { renderEnumDef :: ByteString }
+    deriving (GHC.Generic,Show,Eq,Ord,NFData)
+instance
+  ( Has alias (EnumsOf schema) enum
+  , labels ~ enum
+  ) => IsLabel alias (EnumDef schema labels) where
+    fromLabel = UnsafeEnumDef $ renderAlias (Alias @alias)
+
+newtype Composite
+  (schema :: SchemaType)
+  (fields :: [(Symbol, PGType)])
+  = UnsafeComposite { renderComposite :: ByteString }
+    deriving (GHC.Generic,Show,Eq,Ord,NFData)
+instance
+  ( Has alias (CompositesOf schema) composite
+  , fields ~ composite
+  ) => IsLabel alias (Composite schema fields) where
+    fromLabel = UnsafeComposite $ renderAlias (Alias @alias)
 {-----------------------------------------
 type expressions
 -----------------------------------------}

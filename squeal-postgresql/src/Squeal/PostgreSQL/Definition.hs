@@ -70,6 +70,7 @@ module Squeal.PostgreSQL.Definition
   , createTypeComposite
     -- View Definitions
   , createView
+  , dropView
   ) where
 
 import Control.Category
@@ -398,10 +399,16 @@ DROP statements
 -- >>> renderDefinition $ dropTable #muh_table
 -- "DROP TABLE muh_table;"
 dropTable
-  :: KnownSymbol table
-  => Alias table -- ^ table to remove
-  -> Definition schema (Drop table schema)
+  :: Has tab schema ('Table table)
+  => Alias tab -- ^ table to remove
+  -> Definition schema (Drop tab schema)
 dropTable tab = UnsafeDefinition $ "DROP TABLE" <+> renderAlias tab <> ";"
+
+dropView
+  :: Has view schema ('View rel)
+  => Alias view -- ^ table to remove
+  -> Definition schema (Drop view schema)
+dropView alias = UnsafeDefinition $ "DROP VIEW" <+> renderAlias alias <> ";"
 
 {-----------------------------------------
 ALTER statements
@@ -667,13 +674,15 @@ alterType :: TypeExpression schema ty -> AlterColumn schema ty0 ty
 alterType ty = UnsafeAlterColumn $ "TYPE" <+> renderTypeExpression ty
 
 createTypeEnum
-  :: Aliased (NP Alias) (ty ::: labels)
+  :: (SOP.SListI labels, KnownSymbol ty, SOP.All KnownSymbol labels)
+  => Aliased (NP Alias) (ty ::: labels)
   -> Definition schema (Create ty ('Enum labels) schema)
 createTypeEnum = undefined
 
 createTypeComposite
-  :: Aliased (NP (Aliased (TypeExpression schema))) (ty ::: fields)
-  -> Definition schema (Create ty ('Composite fields) schema)
+  :: AllPGTypes fields
+  => Aliased (NP (Aliased (TypeExpression schema))) (ty ::: fields)
+  -> Definition schema (Create ty ('Composite (ColumnsToPGs fields)) schema)
 createTypeComposite = undefined
 
 createView

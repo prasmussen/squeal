@@ -99,12 +99,16 @@ module Squeal.PostgreSQL.Schema
   , SchemaType
   , TablesOf
   , ViewsOf
+  , EnumsOf
+  , CompositesOf
+  , ColumnsToPGs
   , TablesToSchema
+  , AllPGTypes
   ) where
 
 import Control.DeepSeq
 import Data.ByteString
-import Data.Monoid
+import Data.Monoid hiding (All)
 import Data.String
 import Data.Word
 import Data.Type.Bool
@@ -146,7 +150,7 @@ data PGType
   | PGvararray PGType -- ^ variable length array
   | PGfixarray Nat PGType -- ^ fixed length array
   | PGenum Symbol [Symbol]
-  | PGcomposite Symbol [(Symbol, ColumnType)]
+  | PGcomposite Symbol [(Symbol, PGType)]
   | UnsafePGType Symbol -- ^ an escape hatch for unsupported PostgreSQL types
 
 -- | The object identifier of a `PGType`.
@@ -580,7 +584,7 @@ data ObjectType
   = Table TableType
   | View RelationType
   | Enum [Symbol]
-  | Composite [(Symbol, ColumnType)]
+  | Composite [(Symbol, PGType)]
 
 type SchemaType = [(Symbol, ObjectType)]
 
@@ -602,19 +606,28 @@ type family EnumsOf schema where
     alias ::: fields ': EnumsOf schema
   EnumsOf (_ ': schema) = EnumsOf schema
 
+type family ColumnsToPGs tys where
+  ColumnsToPGs '[] = '[]
+  ColumnsToPGs (col ::: constraints :=> nullity ty ': tys) =
+    col ::: ty ': ColumnsToPGs tys
+
 type family CompositesOf schema where
   CompositesOf '[] = '[]
   CompositesOf (alias ::: 'Composite fields ': schema) =
     alias ::: fields ': CompositesOf schema
   CompositesOf (alias ::: 'Table (constraints :=> fields) ': schema) =
-    alias ::: fields ': CompositesOf schema
+    alias ::: ColumnsToPGs fields ': CompositesOf schema
   CompositesOf (_ ': schema) = CompositesOf schema
 
 type family TablesToSchema tables where
   TablesToSchema '[] = '[]
   TablesToSchema (as ::: tab ': tabs) =
     as ::: 'Table tab ': TablesToSchema tabs
-     
+
+type family AllPGTypes tys :: Constraint where
+  AllPGTypes '[] = ()
+  AllPGTypes (alias ::: 'NoDef :=> 'Null pg ': tys) = AllPGTypes tys
+
 -- table
 -- :: Has table (TablesOf schema) tablety
 -- => Aliased Alias (as ::: table)
